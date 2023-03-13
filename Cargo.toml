@@ -1,0 +1,17 @@
+[package]
+name = "affine-invariant"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "affine_invariant"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.18", features = ["extension-module"] }
+rand = "0.8.5"
+numpy = "0.18.0"
+ndarray = "0.15.6"
+kdam = "0.3.0"
+

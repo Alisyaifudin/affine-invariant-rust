@@ -14,4 +14,5 @@ rand = "0.8.5"
 numpy = "0.18.0"
 ndarray = "0.15.6"
 kdam = "0.3.0"
-
+ode_solvers = "0.3.7"
+interp1d = "0.2.0"

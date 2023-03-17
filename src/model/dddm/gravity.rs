@@ -1,3 +1,4 @@
+use crate::model::dddm::prob::{LOG_H_DD_INDEX, SIGMA_DD_INDEX};
 use crate::stats::normal;
 use crate::utils;
 use crate::utils::method::{Exponential, MinMax, Power, Sqrt, ToArray2};
@@ -105,22 +106,24 @@ pub fn solve(
     let rhob = theta.slice(s![.., RHOB_INDEX]).to_owned();
     let sigmaz = theta.slice(s![.., SIGMAZ_INDEX]).to_owned();
     let rho_dm = theta.slice(s![.., RHO_DM_INDEX]).to_owned();
-    let sigma_dd = 0.;
-    let h_dd = 1.;
+    let sigma_dd = theta.slice(s![.., SIGMA_DD_INDEX]).to_owned();
+    let h_dd = theta.slice(s![.., LOG_H_DD_INDEX]).to_owned().exp();
     let r = theta.slice(s![.., R_INDEX]).to_owned();
 
     let res = rhob
         .axis_iter(Axis(0))
         .zip(sigmaz.axis_iter(Axis(0)))
         .zip(rho_dm.iter())
+        .zip(sigma_dd.iter())
+        .zip(h_dd.iter())
         .zip(r.iter())
-        .map(|(((rhob, sigmaz), rho_dm), r)| {
+        .map(|(((((rhob, sigmaz), rho_dm), sigma_dd), h_dd), r)| {
             let system = Gravity {
                 rhob: SVector::<f64, 12>::from_vec(rhob.to_vec()),
                 sigmaz: SVector::<f64, 12>::from_vec(sigmaz.to_vec()),
                 rho_dm: *rho_dm,
-                sigma_dd,
-                h_dd,
+                sigma_dd: *sigma_dd,
+                h_dd: *h_dd,
                 r: *r,
             };
 
@@ -143,7 +146,6 @@ pub fn potential(z: Array1<f64>, theta: Array2<f64>, dz: Option<f64>) -> Array2<
     let nwalkers = theta.raw_dim()[0];
     let z_len = z.len();
     let z = utils::repeat_1d(&z, nwalkers).t().to_owned();
-    // println!("z.shape={:?}", z.raw_dim());
     let z_sun = theta.slice(s![.., ZSUN_INDEX]).to_owned();
     let z_sun = utils::repeat_1d(&z_sun, z_len).to_owned();
     let z_rel = (z + z_sun).mapv_into(|z| z.abs());
@@ -291,7 +293,7 @@ pub fn fzw(
 ) -> Result<Array1<f64>, &'static str> {
     let z: Array1<f64> = pos.slice(s![.., 0]).to_owned();
     let w: Array1<f64> = pos.slice(s![.., 1]).to_owned();
-    // let len = w.len();
+
     let ndim = theta.len();
     let w0 = theta[W0_INDEX];
     let w_rel = w - w0;

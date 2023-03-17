@@ -7,7 +7,7 @@ use ndarray::{s, Array1, Array2, Array3, Axis};
 use rand::seq::index::sample;
 use rand::seq::SliceRandom;
 
-type LogProb = Box<dyn Fn(&Array2<f64>) -> Array1<f64>>;
+type LogProb = Box<dyn Fn(&Array2<f64>) -> (Array1<f64>, Array1<f64>)>;
 
 #[allow(dead_code)]
 pub struct EnsembleSampler {
@@ -16,13 +16,14 @@ pub struct EnsembleSampler {
     p0: Array2<f64>,
     parallel: bool,
     chain: Array3<f64>,
+    probs: Array3<f64>,
     acceptance: u32,
     log_prob: LogProb,
 }
 
 #[allow(dead_code)]
 impl EnsembleSampler {
-    fn log_prob(&self, x: &Array2<f64>) -> Array1<f64> {
+    fn log_prob(&self, x: &Array2<f64>) -> (Array1<f64>, Array1<f64>) {
         (self.log_prob)(x)
     }
     #[allow(dead_code)]
@@ -35,12 +36,14 @@ impl EnsembleSampler {
     ) -> Self {
         let mut chain = Array3::zeros((1, nwalkers, ndim));
         chain.slice_mut(s![0, .., ..]).assign(&p0);
+        let probs = Array3::zeros((0, nwalkers, 3));
         EnsembleSampler {
             ndim,
             nwalkers,
             p0,
             parallel,
             chain,
+            probs,
             acceptance: 0,
             log_prob,
         }
@@ -60,6 +63,7 @@ impl EnsembleSampler {
         let r = uniform::rvs(&self.nwalkers, &0., &1.);
         let z = utils::zu(u, a);
         let mut p_next = self.chain.slice(s![-1, .., ..]).to_owned();
+        let mut probs_next = self.probs.slice(s![-1, .., ..]).to_owned();
         (0..self.nwalkers).for_each(|i| loop {
             let xk = p_next.slice_axis_mut(Axis(0), (i..i + 1).into()).to_owned();
             let indices = sample(&mut rand::thread_rng(), p_next.nrows(), 1);
@@ -73,9 +77,18 @@ impl EnsembleSampler {
             if test == f64::NAN {
                 continue;
             }
-            let q = (self.ndim as f64 - 1.) * z[i].ln() + self.log_prob(&y) - self.log_prob(&xk);
+            let prob_xk = self.log_prob(&xk);
+            let prob_y = self.log_prob(&y);
+            let q = (self.ndim as f64 - 1.) * z[i].ln() + prob_y.1 - prob_xk.1;
             if q[0] > r[i].ln() {
                 p_next.slice_mut(s![i..i + 1, ..]).assign(&y);
+                // append y to posterior index i
+                let posterior = q[0];
+                let prior = prob_y.0[0];
+                let likelihood = posterior - prior;
+                let probs = ndarray::arr1(&[posterior, prior, likelihood]);
+                let probs = probs.insert_axis(Axis(0));
+                probs_next.slice_mut(s![i..i + 1, ..]).assign(&probs.view());
                 self.acceptance += 1;
             } else {
                 p_next.slice_mut(s![i..i + 1, ..]).assign(&xk);
@@ -84,9 +97,12 @@ impl EnsembleSampler {
         });
         let a = p_next.insert_axis(Axis(0));
         self.chain.append(Axis(0), a.view()).unwrap();
+        let a = probs_next.insert_axis(Axis(0));
+        self.probs.append(Axis(0), a.view()).unwrap();
     }
     fn moves_parallel(&mut self, batch: usize, a: f64) {
         let mut p_next: Array2<f64> = self.chain.slice(s![-1, .., ..]).to_owned();
+        let mut probs_next = self.probs.slice(s![-1, .., ..]).to_owned();
         let sub_walkers = self.nwalkers / batch;
         (0..batch).for_each(|i| {
             loop {
@@ -125,13 +141,14 @@ impl EnsembleSampler {
                     continue;
                 }
                 // println!("Parallel moves {}", 10);
-                let q1 = (self.ndim as f64 - 1.) * z.ln();
+
                 // println!("Parallel moves {}", 11);
                 // println!("q1 {:?}", q1.raw_dim());
-                let q2 = self.log_prob(&y) - self.log_prob(&xk);
+                let prob_xk = self.log_prob(&xk);
+                let prob_y = self.log_prob(&y);
                 // println!("q2 {:?}", q2.raw_dim());
                 // println!("Parallel moves {}", 11);
-                let q = q1 + q2;
+                let q = (self.ndim as f64 - 1.) * z.ln() + prob_y.clone().1 - prob_xk.clone().1;
                 // println!("Parallel moves {}", 12);
                 let r: Array1<f64> = uniform::rvs(&sub_walkers, &0., &1.).ln();
                 // println!("Parallel moves {}", 13);
@@ -152,10 +169,26 @@ impl EnsembleSampler {
                         if m {
                             // println!("Parallel moves {}", 17);
                             p_next.slice_mut(s![k + i * sub_walkers, ..]).assign(&y);
+                            let prior = prob_y.0[k];
+                            let posterior = prob_y.1[k];
+                            let likelihood = posterior - prior;
+                            let probs = ndarray::arr1(&[posterior, prior, likelihood]);
+                            let probs = probs.insert_axis(Axis(0));
+                            probs_next
+                                .slice_mut(s![k + i * sub_walkers, ..])
+                                .assign(&probs.view());
                             // println!("Parallel moves {}", 18);
                         } else {
                             // println!("Parallel moves {}", 19);
                             p_next.slice_mut(s![k + i * sub_walkers, ..]).assign(&x);
+                            let prior = prob_xk.0[k];
+                            let posterior = prob_xk.1[k];
+                            let likelihood = posterior - prior;
+                            let probs = ndarray::arr1(&[posterior, prior, likelihood]);
+                            let probs = probs.insert_axis(Axis(0));
+                            probs_next
+                                .slice_mut(s![k + i * sub_walkers, ..])
+                                .assign(&probs.view());
                             // println!("Parallel moves {}", 20);
                         }
                     });

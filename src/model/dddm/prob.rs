@@ -20,14 +20,16 @@ const SIGMAZ_SCALES: [f64; 12] = [0.2, 0.5, 2.4, 4.0, 1.6, 2.0, 2.4, 1.8, 1.9, 4
 pub const RHOB_INDEX: Range<usize> = 0..12;
 pub const SIGMAZ_INDEX: Range<usize> = 12..24;
 pub const RHO_DM_INDEX: usize = 24;
-pub const LOG_NU0_INDEX: usize = 24 + 1;
-pub const R_INDEX: usize = 24 + 2;
-pub const ZSUN_INDEX: usize = 24 + 3;
-pub const W0_INDEX: usize = 24 + 4;
-pub const SIGMAW1_INDEX: usize = 24 + 5;
-pub const LOG_A1_INDEX: usize = 24 + 6;
-pub const SIGMAW2_INDEX: usize = 24 + 7;
-pub const LOG_A2_INDEX: usize = 24 + 8;
+pub const SIGMA_DD_INDEX: usize = 24 + 1;
+pub const LOG_H_DD_INDEX: usize = 24 + 2;
+pub const LOG_NU0_INDEX: usize = 24 + 3;
+pub const R_INDEX: usize = 24 + 4;
+pub const ZSUN_INDEX: usize = 24 + 5;
+pub const W0_INDEX: usize = 24 + 6;
+pub const SIGMAW1_INDEX: usize = 24 + 7;
+pub const LOG_A1_INDEX: usize = 24 + 8;
+pub const SIGMAW2_INDEX: usize = 24 + 9;
+pub const LOG_A2_INDEX: usize = 24 + 10;
 
 pub const ZBOUND: f64 = 50.0;
 
@@ -49,6 +51,18 @@ pub fn generate_p0_1(nwalkers: usize, locs: Array1<f64>, scales: Array1<f64>) ->
         &nwalkers,
         &locs[RHO_DM_INDEX - skip],
         &scales[RHO_DM_INDEX - skip],
+    )
+    .to_vec();
+    let sigma_dd = uniform::rvs(
+        &nwalkers,
+        &locs[SIGMA_DD_INDEX - skip],
+        &scales[SIGMA_DD_INDEX - skip],
+    )
+    .to_vec();
+    let log_h_dd = uniform::rvs(
+        &nwalkers,
+        &locs[LOG_H_DD_INDEX - skip],
+        &scales[LOG_H_DD_INDEX - skip],
     )
     .to_vec();
     let log_nu0 = uniform::rvs(
@@ -82,6 +96,8 @@ pub fn generate_p0_1(nwalkers: usize, locs: Array1<f64>, scales: Array1<f64>) ->
         .into_iter()
         .chain(sigmaz.into_iter())
         .chain(rho_dm.into_iter())
+        .chain(sigma_dd.into_iter())
+        .chain(log_h_dd.into_iter())
         .chain(log_nu0.into_iter())
         .chain(r.into_iter())
         .chain(zsun.into_iter())
@@ -89,7 +105,7 @@ pub fn generate_p0_1(nwalkers: usize, locs: Array1<f64>, scales: Array1<f64>) ->
         .chain(sigmaw.into_iter())
         .chain(log_a.into_iter())
         .collect::<Vec<f64>>();
-    let res = Array2::from_shape_vec((31, nwalkers), p0)
+    let res = Array2::from_shape_vec((33, nwalkers), p0)
         .unwrap()
         .t()
         .to_owned();
@@ -115,6 +131,18 @@ pub fn log_prior1(theta: &Array2<f64>, locs: &Array1<f64>, scales: &Array1<f64>)
         &rho_dm,
         &locs[RHO_DM_INDEX - skip],
         &scales[RHO_DM_INDEX - skip],
+    );
+    let sigma_dd = theta.slice(s![.., SIGMA_DD_INDEX]).to_owned();
+    let sigma_dd = uniform::log_pdf(
+        &sigma_dd,
+        &locs[SIGMA_DD_INDEX - skip],
+        &scales[SIGMA_DD_INDEX - skip],
+    );
+    let log_h_dd = theta.slice(s![.., LOG_H_DD_INDEX]).to_owned();
+    let log_h_dd = uniform::log_pdf(
+        &log_h_dd,
+        &locs[LOG_H_DD_INDEX - skip],
+        &scales[LOG_H_DD_INDEX - skip],
     );
     let log_nu0 = theta.slice(s![.., LOG_NU0_INDEX]).to_owned();
     let log_nu0 = uniform::log_pdf(
@@ -144,6 +172,8 @@ pub fn log_prior1(theta: &Array2<f64>, locs: &Array1<f64>, scales: &Array1<f64>)
         + sigmaz.sum_axis(Axis(1))
         + rho_dm
         + log_nu0
+        + sigma_dd
+        + log_h_dd
         + r
         + zsun
         + sigmaw
@@ -211,6 +241,18 @@ pub fn generate_p0_2(nwalkers: usize, locs: Array1<f64>, scales: Array1<f64>) ->
         &scales[RHO_DM_INDEX - skip],
     )
     .to_vec();
+    let sigma_dd = uniform::rvs(
+        &nwalkers,
+        &locs[SIGMA_DD_INDEX - skip],
+        &scales[SIGMA_DD_INDEX - skip],
+    )
+    .to_vec();
+    let log_h_dd = uniform::rvs(
+        &nwalkers,
+        &locs[LOG_H_DD_INDEX - skip],
+        &scales[LOG_H_DD_INDEX - skip],
+    )
+    .to_vec();
     let log_nu0 = uniform::rvs(
         &nwalkers,
         &locs[LOG_NU0_INDEX - skip],
@@ -254,6 +296,8 @@ pub fn generate_p0_2(nwalkers: usize, locs: Array1<f64>, scales: Array1<f64>) ->
         .into_iter()
         .chain(sigmaz.into_iter())
         .chain(rho_dm.into_iter())
+        .chain(sigma_dd.into_iter())
+        .chain(log_h_dd.into_iter())
         .chain(log_nu0.into_iter())
         .chain(r.into_iter())
         .chain(zsun.into_iter())
@@ -263,7 +307,7 @@ pub fn generate_p0_2(nwalkers: usize, locs: Array1<f64>, scales: Array1<f64>) ->
         .chain(sigmaw2.into_iter())
         .chain(log_a2.into_iter())
         .collect::<Vec<f64>>();
-    let res = Array2::from_shape_vec((33, nwalkers), p0)
+    let res = Array2::from_shape_vec((35, nwalkers), p0)
         .unwrap()
         .t()
         .to_owned();
@@ -289,6 +333,18 @@ pub fn log_prior2(theta: &Array2<f64>, locs: &Array1<f64>, scales: &Array1<f64>)
         &rho_dm,
         &locs[RHO_DM_INDEX - skip],
         &scales[RHO_DM_INDEX - skip],
+    );
+    let sigma_dd = theta.slice(s![.., SIGMA_DD_INDEX]).to_owned();
+    let sigma_dd = uniform::log_pdf(
+        &sigma_dd,
+        &locs[SIGMA_DD_INDEX - skip],
+        &scales[SIGMA_DD_INDEX - skip],
+    );
+    let log_h_dd = theta.slice(s![.., LOG_H_DD_INDEX]).to_owned();
+    let log_h_dd = uniform::log_pdf(
+        &log_h_dd,
+        &locs[LOG_H_DD_INDEX - skip],
+        &scales[LOG_H_DD_INDEX - skip],
     );
     let log_nu0 = theta.slice(s![.., LOG_NU0_INDEX]).to_owned();
     let log_nu0 = uniform::log_pdf(
@@ -329,6 +385,8 @@ pub fn log_prior2(theta: &Array2<f64>, locs: &Array1<f64>, scales: &Array1<f64>)
     let res = rhob.sum_axis(Axis(1))
         + sigmaz.sum_axis(Axis(1))
         + rho_dm
+        + sigma_dd
+        + log_h_dd
         + log_nu0
         + r
         + zsun

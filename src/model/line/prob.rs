@@ -10,7 +10,7 @@ pub fn generate_data(n: usize, locs: Vec<f64>) -> Result<Array2<f64>, &'static s
     let y = m_true * x.clone() + b_true;
     let y = y.clone() + (y * f_true).mapv_into(|v| v.abs()) * normal::rvs(&n, &0., &1.);
     let y = y + yerr.clone() * normal::rvs(&n, &0., &1.);
-    match ndarray::stack(Axis(1), &[x.view(), y.view(), yerr.view()]) {
+    match ndarray::stack(Axis(0), &[x.view(), y.view(), yerr.view()]) {
         Ok(x) => Ok(x),
         Err(_) => Err("Failed to generate data"),
     }
@@ -75,11 +75,11 @@ pub fn log_prob(
     data: &Array2<f64>,
     locs: &Vec<f64>,
     scales: &Vec<f64>,
-) -> Array1<f64> {
+) -> (Array1<f64>, Array1<f64>) {
     let x = data.slice(s![0, ..]).to_owned();
     let y = data.slice(s![1, ..]).to_owned();
     let yerr = data.slice(s![2, ..]).to_owned();
     let prior = log_prior(theta, locs, scales);
     let likelihood = log_likelihood(theta, x, y, yerr);
-    prior + likelihood
+    (prior.clone(), prior + likelihood)
 }

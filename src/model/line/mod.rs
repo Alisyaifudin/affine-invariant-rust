@@ -9,10 +9,10 @@ pub mod prob;
 #[pyfunction]
 pub fn generate_data<'py>(
     py: Python<'py>,
-    nwalkers: usize,
+    n: usize,
     locs: Vec<f64>,
 ) -> PyResult<&'py PyArray2<f64>> {
-    let data = prob::generate_data(nwalkers, locs);
+    let data = prob::generate_data(n, locs);
     match data {
         Ok(data) => Ok(data.into_pyarray(py)),
         Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(e)),
@@ -40,11 +40,11 @@ pub fn log_prob<'py>(
     data: PyReadonlyArray2<f64>,
     locs: Vec<f64>,
     scales: Vec<f64>,
-) -> &'py PyArray1<f64> {
+) -> (&'py PyArray1<f64>, &'py PyArray1<f64>) {
     let theta = theta.as_array().to_owned();
     let data = data.as_array().to_owned();
-    let data = prob::log_prob(&theta, &data, &locs, &scales);
-    data.into_pyarray(py)
+    let (prior, posterior) = prob::log_prob(&theta, &data, &locs, &scales);
+    (prior.into_pyarray(py), posterior.into_pyarray(py))
 }
 
 #[pyfunction]

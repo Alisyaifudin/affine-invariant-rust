@@ -83,3 +83,13 @@ impl<D: Dimension> Power<D> for Array<f64, D> {
         self.mapv(|x| x.powi(p))
     }
 }
+
+pub trait Sqrt<D> {
+    fn sqrt(&self) -> Array<f64, D>;
+}
+
+impl<D: Dimension> Sqrt<D> for Array<f64, D> {
+    fn sqrt(&self) -> Array<f64, D> {
+        self.mapv(|x| x.sqrt())
+    }
+}

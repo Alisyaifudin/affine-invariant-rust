@@ -176,10 +176,10 @@ pub fn log_prob<'py>(
     let wdata = (wmid, wnum, werr);
     let locs = locs.as_array().to_owned();
     let scales = scales.as_array().to_owned();
-    if ndim == 31 {
+    if ndim == 33 {
         let (prior, posterior) = prob::log_prob1(&theta, zdata, wdata, &locs, &scales, dz);
         Ok((prior.into_pyarray(py), posterior.into_pyarray(py)))
-    } else if ndim == 33 {
+    } else if ndim == 35 {
         let (prior, posterior) = prob::log_prob2(&theta, zdata, wdata, &locs, &scales, dz);
         Ok((prior.into_pyarray(py), posterior.into_pyarray(py)))
     } else {
@@ -369,7 +369,7 @@ pub fn sample<'py>(
     }
     let pos = pos.as_array().to_owned();
     let ndim = pos.raw_dim()[1];
-    let log_prob = move |pos: &Array2<f64>| prob::sample(&pos, &theta, dz);
+    let log_prob = move |pos: &Array2<f64>| prob::sample(&pos, &theta.to_owned(), dz);
     let mut sampler =
         ensemble::EnsembleSampler::new(ndim, nwalkers, pos, parallel, Box::new(log_prob));
 

@@ -1,10 +1,11 @@
 use ndarray::{Array1, Array2, Axis};
 use rand::Rng;
 use std::f64::consts::PI;
+use crate::utils::method::ToArray2;
 
 #[allow(dead_code)]
-pub fn pdf(x: &Array1<f64>, loc: &f64, scale: &f64) -> Array1<f64> {
-    let exp = -0.5 * ((x.clone() - *loc) / *scale).mapv_into(|v| v.powi(2));
+pub fn pdf(x: Array1<f64>, loc: f64, scale: f64) -> Array1<f64> {
+    let exp = -0.5 * ((x.clone() - loc) / scale).mapv_into(|v| v.powi(2));
     let prob = (1.0 / (scale * (2.0 * PI).sqrt())) * exp.mapv_into(|v| v.exp());
     prob
 }
@@ -52,7 +53,14 @@ pub fn pdf_array1(x: &Array1<f64>, loc: &Array1<f64>, scale: &Array1<f64>) -> Ar
 
 #[allow(dead_code)]
 pub fn log_pdf_array1(x: &Array1<f64>, loc: &Array1<f64>, scale: &Array1<f64>) -> Array1<f64> {
-    let prob = pdf_array1(x, loc, scale).mapv_into(|p| p.ln());
+    let prob = x
+        .iter()
+        .zip(loc.iter())
+        .zip(scale.iter())
+        .map(|((x, loc), scale)| {
+            (1. / (scale * (2. * PI).sqrt())).ln() - 0.5 * ((x - loc) / scale).powi(2)
+        })
+        .collect::<Array1<f64>>();
     prob
 }
 
@@ -60,13 +68,18 @@ pub fn log_pdf_array1(x: &Array1<f64>, loc: &Array1<f64>, scale: &Array1<f64>) -
 pub fn pdf_array2(x: &Array2<f64>, loc: &Array1<f64>, scale: &Array1<f64>) -> Array2<f64> {
     let prob = x
         .axis_iter(Axis(0))
-        .map(|xs| pdf_array1(&xs.to_owned(), loc, scale).to_vec())
-        .collect::<Vec<Vec<f64>>>();
-    Array2::from_shape_vec((x.shape()[0], loc.shape()[0]), prob.concat()).unwrap()
+        .map(|xs| pdf_array1(&xs.to_owned(), loc, scale))
+        .collect::<Vec<Array1<f64>>>()
+        .to_array2();
+    prob
 }
 
 #[allow(dead_code)]
 pub fn log_pdf_array2(x: &Array2<f64>, loc: &Array1<f64>, scale: &Array1<f64>) -> Array2<f64> {
-    let prob = pdf_array2(x, loc, scale).mapv_into(|p| p.ln());
+    let prob = x
+        .axis_iter(Axis(0))
+        .map(|xs| log_pdf_array1(&xs.to_owned(), loc, scale))
+        .collect::<Vec<Array1<f64>>>()
+        .to_array2();
     prob
 }

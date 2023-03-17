@@ -1,57 +1,49 @@
 // use crate::prob::log_prob;
 use crate::stats::uniform;
 use crate::utils;
-use crate::{gravity::prob::dm::log_prob1, NDIM};
+use crate::utils::method::{Exponential, ToArray2};
 use kdam::tqdm;
 use ndarray::{s, Array1, Array2, Array3, Axis};
+use rand::seq::index::sample;
+use rand::seq::SliceRandom;
 
-pub type Zdata = (Array1<f64>, Array1<f64>, Array1<f64>);
-pub type Wdata = (Array1<f64>, Array1<f64>, Array1<f64>, f64);
+type LogProb = Box<dyn Fn(&Array2<f64>) -> Array1<f64>>;
+
 #[allow(dead_code)]
-pub struct EnsembleSampler1 {
+pub struct EnsembleSampler {
     ndim: usize,
     nwalkers: usize,
     p0: Array2<f64>,
     parallel: bool,
     chain: Array3<f64>,
     acceptance: u32,
-    zdata: Zdata,
-    wdata: Wdata,
-    dz: Option<f64>
+    log_prob: LogProb,
 }
 
 #[allow(dead_code)]
-type LogProb = fn(&Array2<f64>) -> Array1<f64>;
-
-impl EnsembleSampler1 {
+impl EnsembleSampler {
+    fn log_prob(&self, x: &Array2<f64>) -> Array1<f64> {
+        (self.log_prob)(x)
+    }
     #[allow(dead_code)]
     pub fn new(
         ndim: usize,
         nwalkers: usize,
         p0: Array2<f64>,
         parallel: bool,
-        zdata: Zdata,
-        wdata: Wdata,
-        dz: Option<f64>
+        log_prob: LogProb,
     ) -> Self {
         let mut chain = Array3::zeros((1, nwalkers, ndim));
         chain.slice_mut(s![0, .., ..]).assign(&p0);
-        EnsembleSampler1 {
+        EnsembleSampler {
             ndim,
             nwalkers,
             p0,
             parallel,
             chain,
             acceptance: 0,
-            zdata,
-            wdata,
-            dz
+            log_prob,
         }
-    }
-
-    #[allow(dead_code)]
-    pub fn get_data(&self) -> (Zdata, Wdata) {
-        (self.zdata.clone(), self.wdata.clone())
     }
     #[allow(dead_code)]
     pub fn get_chain(&self) -> Array3<f64> {
@@ -68,86 +60,121 @@ impl EnsembleSampler1 {
         let r = uniform::rvs(&self.nwalkers, &0., &1.);
         let z = utils::zu(u, a);
         let mut p_next = self.chain.slice(s![-1, .., ..]).to_owned();
-        for i in 0..self.nwalkers {
-            let p_rest = utils::remove_rows(&p_next, &[i]);
-            let idx = utils::rand_int(&(self.nwalkers - 1));
-            let Xk = p_next.slice(s![i..i + 1, ..]).to_owned();
-            let Xj = p_rest.slice(s![idx..idx + 1, ..]).to_owned();
-            let Y = Xj.clone() + z[i] * (Xk.clone() - Xj);
-            let q = (self.ndim as f64 - 1.) * z[i].ln() + log_prob1(&Y, &self.zdata, &self.wdata, &self.dz)
-                - log_prob1(&Xk, &self.zdata, &self.wdata, &self.dz);
+        (0..self.nwalkers).for_each(|i| loop {
+            let xk = p_next.slice_axis_mut(Axis(0), (i..i + 1).into()).to_owned();
+            let indices = sample(&mut rand::thread_rng(), p_next.nrows(), 1);
+            let xj = indices
+                .into_iter()
+                .map(|i| p_next.row(i).to_owned())
+                .collect::<Vec<Array1<f64>>>()
+                .to_array2();
+            let y = xj.clone() + z[i] * (xk.clone() - xj);
+            let test = y.sum();
+            if test == f64::NAN {
+                continue;
+            }
+            let q = (self.ndim as f64 - 1.) * z[i].ln() + self.log_prob(&y) - self.log_prob(&xk);
             if q[0] > r[i].ln() {
-                p_next.slice_mut(s![i..i + 1, ..]).assign(&Y);
+                p_next.slice_mut(s![i..i + 1, ..]).assign(&y);
                 self.acceptance += 1;
             } else {
-                p_next.slice_mut(s![i..i + 1, ..]).assign(&Xk);
+                p_next.slice_mut(s![i..i + 1, ..]).assign(&xk);
             }
-        }
+            break;
+        });
         let a = p_next.insert_axis(Axis(0));
         self.chain.append(Axis(0), a.view()).unwrap();
     }
-    fn moves_parallel(&mut self, a: f64) {
+    fn moves_parallel(&mut self, batch: usize, a: f64) {
         let mut p_next: Array2<f64> = self.chain.slice(s![-1, .., ..]).to_owned();
-        for i in 0..2 {
-            let Xk_1: Array2<f64> = p_next.slice(s![..self.nwalkers / 2, ..]).to_owned();
-            let Xk_2: Array2<f64> = p_next.slice(s![self.nwalkers / 2.., ..]).to_owned();
-            let u: Array1<f64> = uniform::rvs(&(self.nwalkers / 2), &0., &1.);
-            let z: Array1<f64> = utils::zu(u, a);
-            let idx = (0..(self.nwalkers / 2))
-                .map(|_| utils::rand_int(&(self.nwalkers / 2)))
-                .collect::<Vec<usize>>();
-            let Xk = if i == 0 { Xk_1.clone() } else { Xk_2.clone() };
-            let Xk_other = if i == 0 { Xk_2 } else { Xk_1 };
-            let Xj = idx
-                .iter()
-                .map(|&x| Xk_other.slice(s![x, ..]).to_owned())
-                .collect::<Vec<Array1<f64>>>();
-            let v = Xj.iter().flatten().cloned().collect::<Vec<f64>>();
-            let Xj = Array2::from_shape_vec((self.nwalkers / 2, self.ndim), v).unwrap();
-            let zz = utils::repeat_1d(&z, NDIM).t().to_owned();
-            let Y = Xj.clone() + zz * (Xk.clone() - Xj);
-            let q = (self.ndim as f64 - 1.) * z.mapv_into(|v| v.ln())
-                + log_prob1(&Y, &self.zdata, &self.wdata, &self.dz)
-                - log_prob1(&Xk, &self.zdata, &self.wdata, &self.dz);
-            let r: Array1<f64> = uniform::rvs(&(self.nwalkers / 2), &0., &1.);
-            let mask = r
-                .iter()
-                .zip(q.iter())
-                .map(|(r, q)| r.ln() <= *q)
-                .collect::<Vec<bool>>();
-            self.acceptance += mask.iter().filter(|&&x| x).count() as u32;
-            let XY = Xk.axis_iter(Axis(0)).zip(Y.axis_iter(Axis(0)));
-            mask.iter()
-                .enumerate()
-                .zip(XY)
-                .for_each(|((k, &m), (x, y))| {
-                    if m {
-                        p_next
-                            .slice_mut(s![k + i * (self.nwalkers / 2), ..])
-                            .assign(&y);
-                    } else {
-                        p_next
-                            .slice_mut(s![k + i * (self.nwalkers / 2), ..])
-                            .assign(&x);
-                    }
-                });
-        }
+        let sub_walkers = self.nwalkers / batch;
+        (0..batch).for_each(|i| {
+            loop {
+                let start = i * sub_walkers;
+                let end = (i + 1) * sub_walkers;
+                let end = if end > self.nwalkers {
+                    self.nwalkers
+                } else {
+                    end
+                };
+                let sub_walkers = end - start;
+                // pop p_next by first axis from start..end
+                let x_left = p_next.slice(s![..start, ..]).to_owned();
+                let xk = p_next.slice(s![start..end, ..]).to_owned();
+                let x_right = p_next.slice(s![end.., ..]).to_owned();
+                let x_rest =
+                    ndarray::concatenate(Axis(0), &[x_left.view(), x_right.view()]).unwrap();
+                let u: Array1<f64> = uniform::rvs(&sub_walkers, &0., &1.);
+                let z: Array1<f64> = utils::zu(u, a);
+                let indices = sample(&mut rand::thread_rng(), x_rest.nrows(), sub_walkers);
+                // println!("Indices {:?}", indices);
+                let xj = indices
+                    .into_iter()
+                    .map(|i| x_rest.row(i).to_owned())
+                    .collect::<Vec<Array1<f64>>>()
+                    .to_array2();
+                // println!("Parallel moves {}", 8);
+                // println!("Xj {:?}", Xj.raw_dim());
+                let zz = utils::repeat_1d(&z, xj.raw_dim()[1]).t().to_owned();
+                // println!("Parallel moves {}", 9);
+                // println!("zz {:?}", zz);
+                // println!("zz dim {:?}", zz.raw_dim());
+                let y = xj.clone() + zz * (xk.clone() - xj);
+                let test = y.sum();
+                if test == f64::NAN {
+                    continue;
+                }
+                // println!("Parallel moves {}", 10);
+                let q1 = (self.ndim as f64 - 1.) * z.ln();
+                // println!("Parallel moves {}", 11);
+                // println!("q1 {:?}", q1.raw_dim());
+                let q2 = self.log_prob(&y) - self.log_prob(&xk);
+                // println!("q2 {:?}", q2.raw_dim());
+                // println!("Parallel moves {}", 11);
+                let q = q1 + q2;
+                // println!("Parallel moves {}", 12);
+                let r: Array1<f64> = uniform::rvs(&sub_walkers, &0., &1.).ln();
+                // println!("Parallel moves {}", 13);
+                let mask = r
+                    .iter()
+                    .zip(q.iter())
+                    .map(|(r, q)| r <= q)
+                    .collect::<Vec<bool>>();
+                // println!("Parallel moves {}", 14);
+                self.acceptance += mask.iter().filter(|&&x| x).count() as u32;
+                // println!("Parallel moves {}", 15);
+                let xy = xk.axis_iter(Axis(0)).zip(y.axis_iter(Axis(0)));
+                // println!("Parallel moves {}", 16);
+                mask.iter()
+                    .enumerate()
+                    .zip(xy)
+                    .for_each(|((k, &m), (x, y))| {
+                        if m {
+                            // println!("Parallel moves {}", 17);
+                            p_next.slice_mut(s![k + i * sub_walkers, ..]).assign(&y);
+                            // println!("Parallel moves {}", 18);
+                        } else {
+                            // println!("Parallel moves {}", 19);
+                            p_next.slice_mut(s![k + i * sub_walkers, ..]).assign(&x);
+                            // println!("Parallel moves {}", 20);
+                        }
+                    });
+                break;
+            }
+        });
+        // println!("Parallel moves {}", 21);
         let a = p_next.insert_axis(Axis(0));
+        // println!("Parallel moves {}", 22);
         self.chain.append(Axis(0), a.view()).unwrap();
+        // println!("Parallel moves {}", 23);
+        self.chain.shuffle_axis(1);
+        // println!("Parallel moves {}", 24);
     }
     #[allow(dead_code)]
-    pub fn run_mcmc(
-        &mut self,
-        nsteps: usize,
-        parallel: bool,
-        verbose: Option<bool>,
-        a: Option<f64>,
-    ) {
-        let a = a.unwrap_or(2.);
-        let verbose = verbose.unwrap_or(false);
+    pub fn run_mcmc(&mut self, nsteps: usize, parallel: bool, batch: usize, verbose: bool, a: f64) {
         for _ in tqdm!(0..nsteps) {
             if parallel {
-                self.moves_parallel(a);
+                self.moves_parallel(batch, a);
             } else {
                 self.moves(a);
             }
@@ -158,5 +185,25 @@ impl EnsembleSampler1 {
                 self.acceptance as f64 / ((nsteps * self.nwalkers) as f64)
             );
         }
+    }
+}
+
+trait ShuffleArray3 {
+    fn shuffle_axis(&mut self, axis: usize);
+}
+
+impl ShuffleArray3 for Array3<f64> {
+    fn shuffle_axis(&mut self, axis: usize) {
+        let axis = Axis(axis);
+
+        let num_slices = self.len_of(axis);
+
+        self.axis_iter_mut(axis)
+            .into_iter()
+            .skip(1)
+            .take(num_slices - 2)
+            .collect::<Vec<_>>()
+            .as_mut_slice()
+            .shuffle(&mut rand::thread_rng());
     }
 }

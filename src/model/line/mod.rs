@@ -1,4 +1,4 @@
-use ndarray::Array2;
+use ndarray::{Array2, s};
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyArray3, PyReadonlyArray2};
 use pyo3::{exceptions::PyValueError, prelude::*};
 
@@ -59,7 +59,7 @@ pub fn mcmc<'py>(
     parallel: Option<bool>,
     batch: Option<usize>,
     verbose: Option<bool>,
-) -> PyResult<(&'py PyArray3<f64>, &'py PyArray3<f64>)> {
+) -> PyResult<&'py PyArray3<f64>> {
     let batch = batch.unwrap_or(2);
     if nwalkers <= 3 {
         Err(PyValueError::new_err("nwalkers must be greater than 3"))?
@@ -71,9 +71,8 @@ pub fn mcmc<'py>(
     let log_prob = move |theta: &Array2<f64>| prob::log_prob(&theta, &data, &locs, &scales);
     let mut sampler =
         ensemble::EnsembleSampler::new(ndim, nwalkers, p0, parallel, Box::new(log_prob));
-
     sampler.run_mcmc(nsteps, parallel, batch, verbose.unwrap_or(false), 2.);
     let array = sampler.get_chain();
-    let probs = sampler.get_probs();
-    Ok((array.into_pyarray(py), probs.into_pyarray(py)))
+    let array = array.slice(s![1_usize.., .., ..]).to_owned();
+    Ok(array.into_pyarray(py))
 }

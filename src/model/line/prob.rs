@@ -76,10 +76,15 @@ pub fn log_prob(
     locs: &Vec<f64>,
     scales: &Vec<f64>,
 ) -> (Array1<f64>, Array1<f64>) {
+    // println!("log_prob {}", 0);
     let x = data.slice(s![0, ..]).to_owned();
+    // println!("log_prob {}", 1);
     let y = data.slice(s![1, ..]).to_owned();
+    // println!("log_prob {}", 2);
     let yerr = data.slice(s![2, ..]).to_owned();
+    // println!("log_prob {}", 3);
     let prior = log_prior(theta, locs, scales);
+    // println!("log_prob {}", 4);
     let likelihood = log_likelihood(theta, x, y, yerr);
     (prior.clone(), prior + likelihood)
 }

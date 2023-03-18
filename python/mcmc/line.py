@@ -71,7 +71,7 @@ def run_mcmc(nsteps: int, nwalkers: int, p0: np.ndarray, data: np.ndarray, locs:
         verbose (`bool`): whether to print out the acceptance rate
     Returns
     -------
-        samples (`np.ndarray`): samples from the posterior distribution
+        samples (`np.ndarray`): samples from the posterior distribution from [:, :, -3] and their respective log probability from [:, :, -3]
     """
     res = af.line.mcmc(nsteps, nwalkers, p0, data, locs, scales, parallel=parallel, batch=batch, verbose=verbose)
     return res

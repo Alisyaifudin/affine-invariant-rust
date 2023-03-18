@@ -7,12 +7,11 @@ def plot_chain(chain, labels, figsize=(10, 10), alpha=0.1, path=None):
     for i, label in enumerate(labels):
         ax[i].plot(chain[:, :, i], alpha=alpha, color="k")
         ax[i].set_ylabel(label)
-        ax[i].set_xlim(0, len(chain))
+        ax[i].set_xlim(0, len(chain)-1)
         ax[i].grid(False)
     ax[-1].set_xlabel("step number")
     if path is not None:
         fig.savefig(path)
-    plt.show()
 
 
 def plot_corner(chain, labels, burn=0, truths=None, path=None):
@@ -30,4 +29,3 @@ def plot_corner(chain, labels, burn=0, truths=None, path=None):
     )
     if path is not None:
         fig.savefig(path)
-    plt.show()

@@ -71,4 +71,7 @@ docs/_build/
 # Pyenv
 .python-version
 
-python/dm/data/
+python/dm/data
+python/dm/data/*
+python/dddm/data
+python/dddm/data/*

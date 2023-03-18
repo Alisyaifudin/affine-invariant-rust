@@ -24,9 +24,9 @@ pub const LOG_NU0_INDEX: usize = 24 + 1;
 pub const R_INDEX: usize = 24 + 2;
 pub const ZSUN_INDEX: usize = 24 + 3;
 pub const W0_INDEX: usize = 24 + 4;
-pub const SIGMAW1_INDEX: usize = 24 + 5;
+pub const LOG_SIGMAW1_INDEX: usize = 24 + 5;
 pub const LOG_A1_INDEX: usize = 24 + 6;
-pub const SIGMAW2_INDEX: usize = 24 + 7;
+pub const LOG_SIGMAW2_INDEX: usize = 24 + 7;
 pub const LOG_A2_INDEX: usize = 24 + 8;
 
 pub const ZBOUND: f64 = 50.0;
@@ -65,10 +65,10 @@ pub fn generate_p0_1(nwalkers: usize, locs: Array1<f64>, scales: Array1<f64>) ->
     )
     .to_vec();
     let w0 = uniform::rvs(&nwalkers, &locs[W0_INDEX - skip], &scales[W0_INDEX - skip]).to_vec();
-    let sigmaw = uniform::rvs(
+    let log_sigmaw = uniform::rvs(
         &nwalkers,
-        &locs[SIGMAW1_INDEX - skip],
-        &scales[SIGMAW1_INDEX - skip],
+        &locs[LOG_SIGMAW1_INDEX - skip],
+        &scales[LOG_SIGMAW1_INDEX - skip],
     )
     .to_vec();
     let log_a = uniform::rvs(
@@ -86,7 +86,7 @@ pub fn generate_p0_1(nwalkers: usize, locs: Array1<f64>, scales: Array1<f64>) ->
         .chain(r.into_iter())
         .chain(zsun.into_iter())
         .chain(w0.into_iter())
-        .chain(sigmaw.into_iter())
+        .chain(log_sigmaw.into_iter())
         .chain(log_a.into_iter())
         .collect::<Vec<f64>>();
     let res = Array2::from_shape_vec((31, nwalkers), p0)
@@ -128,11 +128,11 @@ pub fn log_prior1(theta: &Array2<f64>, locs: &Array1<f64>, scales: &Array1<f64>)
     let zsun = uniform::log_pdf(&zsun, &locs[ZSUN_INDEX - skip], &scales[ZSUN_INDEX - skip]);
     let w0 = theta.slice(s![.., W0_INDEX]).to_owned();
     let w0 = uniform::log_pdf(&w0, &locs[W0_INDEX - skip], &scales[W0_INDEX - skip]);
-    let sigmaw = theta.slice(s![.., SIGMAW1_INDEX]).to_owned();
-    let sigmaw = uniform::log_pdf(
-        &sigmaw,
-        &locs[SIGMAW1_INDEX - skip],
-        &scales[SIGMAW1_INDEX - skip],
+    let log_sigmaw = theta.slice(s![.., LOG_SIGMAW1_INDEX]).to_owned();
+    let log_sigmaw = uniform::log_pdf(
+        &log_sigmaw,
+        &locs[LOG_SIGMAW1_INDEX - skip],
+        &scales[LOG_SIGMAW1_INDEX - skip],
     );
     let log_a = theta.slice(s![.., LOG_A1_INDEX]).to_owned();
     let log_a = uniform::log_pdf(
@@ -146,7 +146,7 @@ pub fn log_prior1(theta: &Array2<f64>, locs: &Array1<f64>, scales: &Array1<f64>)
         + log_nu0
         + r
         + zsun
-        + sigmaw
+        + log_sigmaw
         + w0
         + log_a;
     res
@@ -225,10 +225,10 @@ pub fn generate_p0_2(nwalkers: usize, locs: Array1<f64>, scales: Array1<f64>) ->
     )
     .to_vec();
     let w0 = uniform::rvs(&nwalkers, &locs[W0_INDEX - skip], &scales[W0_INDEX - skip]).to_vec();
-    let sigmaw1 = uniform::rvs(
+    let log_sigmaw1 = uniform::rvs(
         &nwalkers,
-        &locs[SIGMAW1_INDEX - skip],
-        &scales[SIGMAW1_INDEX - skip],
+        &locs[LOG_SIGMAW1_INDEX - skip],
+        &scales[LOG_SIGMAW1_INDEX - skip],
     )
     .to_vec();
     let log_a1 = uniform::rvs(
@@ -237,10 +237,10 @@ pub fn generate_p0_2(nwalkers: usize, locs: Array1<f64>, scales: Array1<f64>) ->
         &scales[LOG_A1_INDEX - skip],
     )
     .to_vec();
-    let sigmaw2 = uniform::rvs(
+    let log_sigmaw2 = uniform::rvs(
         &nwalkers,
-        &locs[SIGMAW2_INDEX - skip],
-        &scales[SIGMAW2_INDEX - skip],
+        &locs[LOG_SIGMAW2_INDEX - skip],
+        &scales[LOG_SIGMAW2_INDEX - skip],
     )
     .to_vec();
     let log_a2 = uniform::rvs(
@@ -258,9 +258,9 @@ pub fn generate_p0_2(nwalkers: usize, locs: Array1<f64>, scales: Array1<f64>) ->
         .chain(r.into_iter())
         .chain(zsun.into_iter())
         .chain(w0.into_iter())
-        .chain(sigmaw1.into_iter())
+        .chain(log_sigmaw1.into_iter())
         .chain(log_a1.into_iter())
-        .chain(sigmaw2.into_iter())
+        .chain(log_sigmaw2.into_iter())
         .chain(log_a2.into_iter())
         .collect::<Vec<f64>>();
     let res = Array2::from_shape_vec((33, nwalkers), p0)
@@ -302,11 +302,11 @@ pub fn log_prior2(theta: &Array2<f64>, locs: &Array1<f64>, scales: &Array1<f64>)
     let zsun = uniform::log_pdf(&zsun, &locs[ZSUN_INDEX - skip], &scales[ZSUN_INDEX - skip]);
     let w0 = theta.slice(s![.., W0_INDEX]).to_owned();
     let w0 = uniform::log_pdf(&w0, &locs[W0_INDEX - skip], &scales[W0_INDEX - skip]);
-    let sigmaw1 = theta.slice(s![.., SIGMAW1_INDEX]).to_owned();
-    let sigmaw1 = uniform::log_pdf(
-        &sigmaw1,
-        &locs[SIGMAW1_INDEX - skip],
-        &scales[SIGMAW1_INDEX - skip],
+    let log_sigmaw1 = theta.slice(s![.., LOG_SIGMAW1_INDEX]).to_owned();
+    let log_sigmaw1 = uniform::log_pdf(
+        &log_sigmaw1,
+        &locs[LOG_SIGMAW1_INDEX - skip],
+        &scales[LOG_SIGMAW1_INDEX - skip],
     );
     let log_a1 = theta.slice(s![.., LOG_A1_INDEX]).to_owned();
     let log_a1 = uniform::log_pdf(
@@ -314,11 +314,11 @@ pub fn log_prior2(theta: &Array2<f64>, locs: &Array1<f64>, scales: &Array1<f64>)
         &locs[LOG_A1_INDEX - skip],
         &scales[LOG_A1_INDEX - skip],
     );
-    let sigmaw2 = theta.slice(s![.., SIGMAW2_INDEX]).to_owned();
-    let sigmaw2 = uniform::log_pdf(
-        &sigmaw2,
-        &locs[SIGMAW2_INDEX - skip],
-        &scales[SIGMAW2_INDEX - skip],
+    let log_sigmaw2 = theta.slice(s![.., LOG_SIGMAW2_INDEX]).to_owned();
+    let log_sigmaw2 = uniform::log_pdf(
+        &log_sigmaw2,
+        &locs[LOG_SIGMAW2_INDEX - skip],
+        &scales[LOG_SIGMAW2_INDEX - skip],
     );
     let log_a2 = theta.slice(s![.., LOG_A2_INDEX]).to_owned();
     let log_a2 = uniform::log_pdf(
@@ -333,9 +333,9 @@ pub fn log_prior2(theta: &Array2<f64>, locs: &Array1<f64>, scales: &Array1<f64>)
         + r
         + zsun
         + w0
-        + sigmaw1
+        + log_sigmaw1
         + log_a1
-        + sigmaw2
+        + log_sigmaw2
         + log_a2;
     res
 }
@@ -368,6 +368,7 @@ pub fn log_prob2(
 ) -> (Array1<f64>, Array1<f64>) {
     let prior = log_prior2(theta, locs, scales);
     let likelihood = log_likelihood2(theta, &zdata, &wdata, dz.clone());
+    // nan?
     (prior.clone(), prior + likelihood)
 }
 

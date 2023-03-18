@@ -119,7 +119,7 @@ def generate_p0(nwalkers: int, locs: ndarray, scales: ndarray, kind: int) -> nda
         scales (`ndarray[1]`): the scales for the prior
         kind (`int`): either for 31 (=1) or 33 (=2) parameters
     """
-    val = af.dm.generate_p0(nwalkers, locs, scales)
+    val = af.dm.generate_p0(nwalkers, locs, scales, kind=kind)
     return val
 
 def fz(z: ndarray, theta: ndarray, dz=10.) -> ndarray:
@@ -190,7 +190,7 @@ def run_mcmc(nsteps: int, nwalkers: int, p0: ndarray, zdata: Tuple[ndarray, ndar
         batch (`Optional[int]`): the number of batches (default: 2)
         verbose (`Optional[bool]`): whether to print the acceptance rate (default: False)
     """
-    val = af.dm.run_mcmc(nsteps, nwalkers, p0, zdata, wdata, locs, scales, parallel=parallel, dz=dz, batch=batch, verbose=verbose)
+    val = af.dm.mcmc(nsteps, nwalkers, p0, zdata, wdata, locs, scales, parallel=parallel, dz=dz, batch=batch, verbose=verbose)
     return val
 
 def fzw(pos: ndarray, theta: ndarray, dz=1.) -> ndarray:

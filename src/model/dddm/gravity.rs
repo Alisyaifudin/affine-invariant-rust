@@ -239,8 +239,10 @@ pub fn fz2(z: Array1<f64>, theta: Array2<f64>, dz: Option<f64>) -> Array2<f64> {
         .zip(a2.iter())
         .zip(nu0.iter())
         .map(|(((((pot, sigmaw1), sigmaw2), a1), a2), nu0)| {
+            let atot = a1 + a2;
             pot.to_owned().mapv_into(|p| {
-                nu0 * (a1 * (-p / sigmaw1.powi(2)).exp() + a2 * (-p / sigmaw2.powi(2)).exp())
+                nu0 * ((a1 / atot.clone()) * (-p / sigmaw1.powi(2)).exp()
+                    + (a2 / atot) * (-p / sigmaw2.powi(2)).exp())
             })
         })
         .collect::<Vec<Array1<f64>>>()

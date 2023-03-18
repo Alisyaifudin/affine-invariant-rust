@@ -166,7 +166,7 @@ pub fn log_prob<'py>(
         wnum.as_array().to_owned(),
         werr.as_array().to_owned(),
     );
-    if ndim != 31 || ndim != 33 {
+    if ndim != 31 && ndim != 33 {
         Err(PyValueError::new_err(format!(
             "Invalid number of dimensions: {}, expected 31 or 33",
             ndim
@@ -282,9 +282,14 @@ pub fn mcmc<'py>(
     batch: Option<usize>,
     verbose: Option<bool>,
 ) -> PyResult<&'py PyArray3<f64>> {
+    let p0 = p0.as_array().to_owned();
+    let ndim = p0.raw_dim()[1];
+    if ndim != 31 && ndim != 33 {
+        Err(PyValueError::new_err("p0 must have dimension 31 or 33"))?
+    }
     let batch = batch.unwrap_or(2);
-    if nwalkers <= 31 {
-        panic!("nwalkers must be greater than {} (ndims)", 31);
+    if nwalkers <= ndim {
+        panic!("nwalkers must be greater than {} (ndims)", ndim);
     }
     let parallel = parallel.unwrap_or(false);
     if parallel && (nwalkers % 2) != 0 {
@@ -304,11 +309,6 @@ pub fn mcmc<'py>(
         werr.as_array().to_owned(),
     );
     let wdata = (wmid, wnum, werr);
-    let p0 = p0.as_array().to_owned();
-    let ndim = p0.raw_dim()[1];
-    if ndim != 31 && ndim != 33 {
-        Err(PyValueError::new_err("p0 must have dimension 31 or 33"))?
-    }
     let locs = locs.as_array().to_owned();
     let scales = scales.as_array().to_owned();
     let log_prob = move |theta: &Array2<f64>| {
@@ -376,5 +376,6 @@ pub fn sample<'py>(
     sampler.run_mcmc(nsteps, parallel, batch, verbose.unwrap_or(false), 2.);
 
     let array = sampler.get_chain();
+    let array = array.slice(s![1_usize.., .., ..]).to_owned();
     Ok(array.into_pyarray(py))
 }

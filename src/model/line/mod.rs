@@ -59,7 +59,7 @@ pub fn mcmc<'py>(
     parallel: Option<bool>,
     batch: Option<usize>,
     verbose: Option<bool>,
-) -> PyResult<&'py PyArray3<f64>> {
+) -> PyResult<(&'py PyArray3<f64>, &'py PyArray3<f64>)> {
     let batch = batch.unwrap_or(2);
     if nwalkers <= 3 {
         Err(PyValueError::new_err("nwalkers must be greater than 3"))?
@@ -74,5 +74,6 @@ pub fn mcmc<'py>(
 
     sampler.run_mcmc(nsteps, parallel, batch, verbose.unwrap_or(false), 2.);
     let array = sampler.get_chain();
-    Ok(array.into_pyarray(py))
+    let probs = sampler.get_probs();
+    Ok((array.into_pyarray(py), probs.into_pyarray(py)))
 }

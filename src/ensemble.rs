@@ -52,6 +52,9 @@ impl EnsembleSampler {
     pub fn get_chain(&self) -> Array3<f64> {
         self.chain.clone()
     }
+    pub fn get_probs(&self) -> Array3<f64> {
+        self.probs.clone()
+    }
     #[allow(dead_code)]
     pub fn reset(&mut self) {
         self.chain = self.chain.slice(s![-1..-2, .., ..]).to_owned();

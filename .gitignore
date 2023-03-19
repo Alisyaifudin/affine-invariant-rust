@@ -72,6 +72,5 @@ docs/_build/
 .python-version
 
 python/dm/data
-python/dm/data/*
-python/dddm/data
-python/dddm/data/*
+python/dm/dm/data
+python/dm/dm/plots

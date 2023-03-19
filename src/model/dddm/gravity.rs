@@ -1,4 +1,3 @@
-use crate::model::dddm::prob::{LOG_H_DD_INDEX, SIGMA_DD_INDEX};
 use crate::stats::normal;
 use crate::utils;
 use crate::utils::method::{Exponential, MinMax, Power, Sqrt, ToArray2};
@@ -10,8 +9,9 @@ use std::f64::consts::PI;
 
 // use super::prob;
 use super::prob::{
-    LOG_A1_INDEX, LOG_A2_INDEX, LOG_NU0_INDEX, RHOB_INDEX, RHO_DM_INDEX, R_INDEX, SIGMAW1_INDEX,
-    SIGMAW2_INDEX, SIGMAZ_INDEX, W0_INDEX, ZBOUND, ZSUN_INDEX,
+    LOG_A1_INDEX, LOG_A2_INDEX, LOG_H_DD_INDEX, LOG_NU0_INDEX, LOG_SIGMAW1_INDEX,
+    LOG_SIGMAW2_INDEX, RHOB_INDEX, RHO_DM_INDEX, R_INDEX, SIGMAZ_INDEX, SIGMA_DD_INDEX, W0_INDEX,
+    ZBOUND, ZSUN_INDEX,
 };
 
 pub type State = Vector2<f64>;
@@ -170,11 +170,8 @@ pub fn potential(z: Array1<f64>, theta: Array2<f64>, dz: Option<f64>) -> Array2<
 
 pub fn fz1(z: Array1<f64>, theta: Array2<f64>, dz: Option<f64>) -> Array2<f64> {
     let pot = potential(z, theta.clone(), dz);
-    let sigmaw = theta.slice(s![.., SIGMAW1_INDEX]).to_owned();
-    let nu0 = theta
-        .slice(s![.., LOG_NU0_INDEX])
-        .to_owned()
-        .mapv_into(|v| v.exp());
+    let sigmaw = theta.slice(s![.., LOG_SIGMAW1_INDEX]).to_owned().exp();
+    let nu0 = theta.slice(s![.., LOG_NU0_INDEX]).to_owned().exp();
     let res = pot
         .axis_iter(Axis(0))
         .zip(sigmaw.iter())
@@ -194,7 +191,7 @@ pub fn fw1(w: Array1<f64>, theta: Array2<f64>, dz: Option<f64>) -> Array2<f64> {
     let w: Array2<f64> = utils::repeat_1d(&w, nwalkers).t().to_owned();
     let w0: Array1<f64> = theta.slice(s![.., W0_INDEX]).to_owned();
     let w0: Array2<f64> = utils::repeat_1d(&w0, w_len).to_owned();
-    let sigmaw: Array1<f64> = theta.slice(s![.., SIGMAW1_INDEX]).to_owned();
+    let sigmaw: Array1<f64> = theta.slice(s![.., LOG_SIGMAW1_INDEX]).to_owned().exp();
     let a: Array1<f64> = theta
         .slice(s![.., LOG_A1_INDEX])
         .to_owned()
@@ -223,8 +220,8 @@ pub fn fw1(w: Array1<f64>, theta: Array2<f64>, dz: Option<f64>) -> Array2<f64> {
 
 pub fn fz2(z: Array1<f64>, theta: Array2<f64>, dz: Option<f64>) -> Array2<f64> {
     let pot = potential(z, theta.clone(), dz);
-    let sigmaw1 = theta.slice(s![.., SIGMAW1_INDEX]).to_owned();
-    let sigmaw2 = theta.slice(s![.., SIGMAW2_INDEX]).to_owned();
+    let sigmaw1 = theta.slice(s![.., LOG_SIGMAW1_INDEX]).to_owned().exp();
+    let sigmaw2 = theta.slice(s![.., LOG_SIGMAW2_INDEX]).to_owned().exp();
     let a1 = theta.slice(s![.., LOG_A1_INDEX]).to_owned().exp();
     let a2 = theta.slice(s![.., LOG_A2_INDEX]).to_owned().exp();
     let nu0 = theta
@@ -256,8 +253,8 @@ pub fn fw2(w: Array1<f64>, theta: Array2<f64>, dz: Option<f64>) -> Array2<f64> {
     let w: Array2<f64> = utils::repeat_1d(&w, nwalkers).t().to_owned();
     let w0: Array1<f64> = theta.slice(s![.., W0_INDEX]).to_owned();
     let w0: Array2<f64> = utils::repeat_1d(&w0, w_len).to_owned();
-    let sigmaw1: Array1<f64> = theta.slice(s![.., SIGMAW1_INDEX]).to_owned();
-    let sigmaw2: Array1<f64> = theta.slice(s![.., SIGMAW2_INDEX]).to_owned();
+    let sigmaw1: Array1<f64> = theta.slice(s![.., LOG_SIGMAW1_INDEX]).to_owned().exp();
+    let sigmaw2: Array1<f64> = theta.slice(s![.., LOG_SIGMAW2_INDEX]).to_owned().exp();
     let a1: Array1<f64> = theta.slice(s![.., LOG_A1_INDEX]).to_owned().exp();
     let a2: Array1<f64> = theta.slice(s![.., LOG_A2_INDEX]).to_owned().exp();
     let w_rel: Array2<f64> = w - w0;
@@ -299,17 +296,17 @@ pub fn fzw(
     let ndim = theta.len();
     let w0 = theta[W0_INDEX];
     let w_rel = w - w0;
-    let sigmaw1 = theta[SIGMAW1_INDEX];
+    let sigmaw1 = theta[LOG_SIGMAW1_INDEX].exp();
     let a1 = theta[LOG_A1_INDEX].exp();
     let theta_thick = theta.clone().insert_axis(Axis(0));
     let potential = potential(z, theta_thick.clone(), dz).row(0).to_owned();
-    if ndim == 31 {
+    if ndim == 3 {
         let sign = w_rel.clone().mapv_into(|w| w.signum());
         let w_val = sign * (w_rel.powi(2) + 2. * potential).sqrt();
         let p = a1 * normal::pdf(w_val, 0., sigmaw1);
         Ok(p)
-    } else if ndim == 33 {
-        let sigmaw2 = theta[SIGMAW2_INDEX];
+    } else if ndim == 35 {
+        let sigmaw2 = theta[LOG_SIGMAW2_INDEX].exp();
         let a2 = theta[LOG_A2_INDEX].exp();
 
         let sign = w_rel.clone().mapv_into(|w| w.signum());

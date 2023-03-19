@@ -166,9 +166,9 @@ pub fn log_prob<'py>(
         wnum.as_array().to_owned(),
         werr.as_array().to_owned(),
     );
-    if ndim != 31 || ndim != 33 {
+    if ndim != 33 && ndim != 35 {
         Err(PyValueError::new_err(format!(
-            "Invalid number of dimensions: {}, expected 31 or 33",
+            "Invalid number of dimensions: {}, expected 33 or 35",
             ndim
         )))?
     }
@@ -184,7 +184,7 @@ pub fn log_prob<'py>(
         Ok((prior.into_pyarray(py), posterior.into_pyarray(py)))
     } else {
         Err(PyValueError::new_err(format!(
-            "Invalid number of dimensions: {}, expected 31 or 33",
+            "Invalid number of dimensions: {}, expected 33 or 35",
             ndim
         )))?
     }
@@ -224,7 +224,7 @@ pub fn fz<'py>(
     let ndim = theta.len();
     let theta = theta.insert_axis(Axis(0));
     let z = z.as_array().to_owned();
-    let fz = if ndim == 31 {
+    let fz = if ndim == 33 {
         gravity::fz1(z, theta, dz)
     } else {
         gravity::fz2(z, theta, dz)
@@ -247,7 +247,7 @@ pub fn fw<'py>(
     let ndim = theta.len();
     let theta = theta.insert_axis(Axis(0));
     let w = w.as_array().to_owned();
-    let fw = if ndim == 31 {
+    let fw = if ndim == 33 {
         gravity::fw1(w, theta, dz)
     } else {
         gravity::fw2(w, theta, dz)
@@ -283,8 +283,8 @@ pub fn mcmc<'py>(
     verbose: Option<bool>,
 ) -> PyResult<&'py PyArray3<f64>> {
     let batch = batch.unwrap_or(2);
-    if nwalkers <= 31 {
-        panic!("nwalkers must be greater than {} (ndims)", 31);
+    if nwalkers <= 33 {
+        panic!("nwalkers must be greater than {} (ndims)", 33);
     }
     let parallel = parallel.unwrap_or(false);
     if parallel && (nwalkers % 2) != 0 {
@@ -306,13 +306,13 @@ pub fn mcmc<'py>(
     let wdata = (wmid, wnum, werr);
     let p0 = p0.as_array().to_owned();
     let ndim = p0.raw_dim()[1];
-    if ndim != 31 && ndim != 33 {
-        Err(PyValueError::new_err("p0 must have dimension 31 or 33"))?
+    if ndim != 33 && ndim != 35 {
+        Err(PyValueError::new_err("p0 must have dimension 33 or 35"))?
     }
     let locs = locs.as_array().to_owned();
     let scales = scales.as_array().to_owned();
     let log_prob = move |theta: &Array2<f64>| {
-        if ndim == 31 {
+        if ndim == 33 {
             prob::log_prob1(
                 &theta,
                 zdata.to_owned(),
@@ -364,8 +364,8 @@ pub fn sample<'py>(
     let theta = theta.as_array().to_owned();
 
     let theta_dim = theta.len();
-    if theta_dim != 31 && theta_dim != 33 {
-        Err(PyValueError::new_err("theta must have dimension 31 or 33"))?
+    if theta_dim != 33 && theta_dim != 35 {
+        Err(PyValueError::new_err("theta must have dimension 33 or 35"))?
     }
     let pos = pos.as_array().to_owned();
     let ndim = pos.raw_dim()[1];

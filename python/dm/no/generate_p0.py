@@ -9,7 +9,7 @@ parent_dir = os.path.dirname(os.getcwd())
 root_dir = abspath(join(parent_dir, '..'))
 current_dir = os.path.curdir
 sys.path.append(root_dir)
-from mcmc import dm
+from mcmc import no
 from init import init
 from scipy.stats import norm
 from scipy.optimize import curve_fit
@@ -41,7 +41,6 @@ def kind1():
     log_a1 = np.log(poptw[2])
 
     locs = dict(
-        rhoDM=-0.02,
         log_nu0=log_nu0-1,
         R=3.4E-3,
         zsun=-50,
@@ -51,7 +50,6 @@ def kind1():
     )
 
     scales = dict(
-        rhoDM=0.12,
         log_nu0=2,
         R=0.6E-3,
         zsun=100,
@@ -82,7 +80,6 @@ def kind2():
                 print(f"ooppss... try again... {i}")
                 continue
             locs = dict(
-                rhoDM=-0.02,
                 log_nu0=log_nu0-1,
                 R=3.4E-3,
                 zsun=-50,
@@ -94,7 +91,6 @@ def kind2():
             )
 
             scales = dict(
-                rhoDM=0.12,
                 log_nu0=2,
                 R=0.6E-3,
                 zsun=100,
@@ -117,9 +113,9 @@ scales = np.array(list(scales.values()))
 
 print("generate p0...")
 t0 = time()
-p0 = dm.generate_p0(nwalkers, locs, scales, kind=model_kind)
+p0 = no.generate_p0(nwalkers, locs, scales, kind=model_kind)
 print(f"generating p0 took {time()-t0:.2f} seconds")
 
-np.save(join(current_dir, 'data', f'locs-{model_kind}-dm.npy'), locs)
-np.save(join(current_dir, 'data', f'scales-{model_kind}-dm.npy'), scales)
-np.save(join(current_dir, 'data', f'p0-{model_kind}-dm.npy'), p0)
+np.save(join(current_dir, 'data', f'locs-{model_kind}-no.npy'), locs)
+np.save(join(current_dir, 'data', f'scales-{model_kind}-no.npy'), scales)
+np.save(join(current_dir, 'data', f'p0-{model_kind}-no.npy'), p0)
